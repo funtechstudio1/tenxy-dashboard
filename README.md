@@ -18,7 +18,7 @@ TENXY is a proprietary simulation platform developed by **Fun Tech Studio**.
 
 This project is protected under copyright law. Unauthorized copying, reproduction, or distribution of any part of this software is strictly prohibited.
 
-© 2025 Ng Khai Le — Fun Tech Studio. All rights reserved.
+© 2026 Ng Khai Le — Fun Tech Studio. All rights reserved.
 
 ---
 
