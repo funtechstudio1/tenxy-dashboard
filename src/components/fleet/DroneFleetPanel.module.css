@@ -1,0 +1,197 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-primary);
+}
+
+.filterBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filterBtn:hover {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* min-height: 0 is critical for flex children to scroll — without it the flex
+     item expands to fit all content and overflow:auto has nothing to scroll */
+  min-height: 0;
+  height: 0;          /* forces browser to honour flex: 1 constraint */
+  /* thin scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,212,255,0.5) rgba(0,0,0,0.2);
+}
+.list::-webkit-scrollbar { width: 5px; }
+.list::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 3px; }
+.list::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.5); border-radius: 3px; }
+.list::-webkit-scrollbar-thumb:hover { background: rgba(0,212,255,0.8); }
+
+.card {
+  padding: var(--space-3) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.card:hover {
+  border-color: var(--border-active);
+  background: var(--bg-hover);
+}
+
+.card.selected {
+  border-color: var(--border-glow);
+  border-left: 3px solid var(--accent-cyan);
+  background: var(--accent-cyan-bg);
+  animation: border-glow 2s infinite;
+}
+
+.card.checked {
+  background: rgba(0, 212, 255, 0.06);
+  border-color: rgba(0, 212, 255, 0.4);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.cardName {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--accent-cyan);
+}
+
+.cardIconImg {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 5px var(--accent-cyan)) brightness(1.2) hue-rotate(180deg);
+}
+
+.cardStatus {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  padding: 1px 6px;
+  border: 1px solid;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+}
+
+.statusCyan {
+  color: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+}
+
+.statusGreen {
+  color: var(--status-green);
+  border-color: var(--status-green);
+}
+
+.statusAmber {
+  color: var(--status-amber);
+  border-color: var(--status-amber);
+}
+
+.statusRed {
+  color: var(--status-red);
+  border-color: var(--status-red);
+}
+
+.statusDim {
+  color: var(--text-secondary);
+  border-color: var(--border-subtle);
+}
+
+.cardMeta {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.batteryTrack {
+  width: 100%;
+  height: 3px;
+  background: var(--bg-hover);
+}
+
+.batteryFill {
+  height: 100%;
+  transition: width 500ms linear;
+}
+
+.footer {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.footerStats {
+  text-align: center;
+}
+
+.footerStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.footerLabel {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+}
+
+.footerValue {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+}

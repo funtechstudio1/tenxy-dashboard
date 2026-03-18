@@ -1,0 +1,352 @@
+.screen {
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--text-primary);
+}
+
+.header {
+  height: 80px;
+  background: var(--bg-secondary);
+  border-bottom: 2px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-8);
+}
+
+.headerLeft, .headerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.backBtn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-dim);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.backBtn:hover {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.titleGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  font-size: var(--text-2xl);
+  font-weight: 900;
+  letter-spacing: var(--tracking-tight);
+}
+
+.subtitle {
+  font-size: 10px;
+  color: var(--accent-cyan);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+.headerStat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.headerStatLabel {
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.headerStatValue {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  font-family: var(--font-mono);
+}
+
+.SCANNING { color: var(--accent-cyan); }
+.RETURNING { color: var(--status-red); }
+
+.grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  min-height: 0;
+}
+
+/* Visual HUD */
+.visualHud {
+  background: #000;
+  border: 1px solid var(--border-subtle);
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+}
+
+.hudContainer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.hudOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  padding: var(--space-12);
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+
+.hudCorner {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-color: var(--accent-cyan-dim);
+  border-style: solid;
+}
+
+.topL { top: var(--space-4); left: var(--space-4); border-width: 2px 0 0 2px; }
+.topR { top: var(--space-4); right: var(--space-4); border-width: 2px 2px 0 0; }
+.botL { bottom: var(--space-4); left: var(--space-4); border-width: 0 0 2px 2px; }
+.botR { bottom: var(--space-4); right: var(--space-4); border-width: 0 2px 2px 0; }
+
+.hudCenter {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.crosshair {
+  width: 200px;
+  height: 200px;
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  border-radius: 50%;
+  position: relative;
+}
+
+.crosshair::before, .crosshair::after {
+  content: '';
+  position: absolute;
+  background: var(--accent-cyan);
+}
+
+.crosshair::before { top: 50%; left: -20px; width: 40px; height: 1px; }
+.crosshair::after { top: -20px; left: 50%; width: 1px; height: 40px; }
+
+.altTape {
+  position: absolute;
+  right: var(--space-12);
+  height: 200px;
+  width: 40px;
+  border-left: 1px solid var(--accent-cyan-dim);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-left: var(--space-2);
+}
+
+.tapeMark {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--accent-cyan-dim);
+}
+
+.hudBottom {
+  display: flex;
+  justify-content: center;
+}
+
+.compass {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--accent-cyan-dim);
+  padding: var(--space-2) var(--space-8);
+  display: flex;
+  gap: var(--space-8);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--accent-cyan-dim);
+}
+
+.activeDeg {
+  color: var(--accent-cyan);
+  font-weight: var(--weight-bold);
+  text-shadow: 0 0 10px var(--accent-cyan);
+}
+
+.staticFeed {
+  width: 100%;
+  height: 100%;
+  background: #050a0a;
+  position: relative;
+}
+
+.scanline {
+  position: absolute;
+  width: 100%;
+  height: 100px;
+  background: linear-gradient(transparent, rgba(0, 255, 255, 0.05), transparent);
+  animation: scan 8s linear infinite;
+}
+
+.noise {
+  width: 100%;
+  height: 100%;
+  background: url('https://grainy-gradients.vercel.app/noise.svg');
+  opacity: 0.05;
+}
+
+/* Sidebar */
+.telemetry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  overflow-y: auto;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+}
+
+.telemetryCard, .coordsCard, .aiDiagnostic {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.telRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.telIcon {
+  color: var(--accent-cyan);
+}
+
+.telData {
+  display: flex;
+  flex-direction: column;
+}
+
+.telLabel {
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.telValue {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.batteryBar {
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  margin-top: var(--space-3);
+  overflow: hidden;
+}
+
+.batteryFill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.telemetryGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.telItem {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.telItem svg {
+  color: var(--accent-cyan-dim);
+  margin-bottom: 2px;
+}
+
+.telItemLabel {
+  font-size: 8px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.telItemValue {
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  font-family: var(--font-mono);
+}
+
+.diagnosticLog {
+  margin-top: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.activeDiag {
+  color: var(--accent-cyan);
+  animation: blink 1s infinite;
+}
+
+@keyframes scan {
+  from { top: -100px; }
+  to { top: 100%; }
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.errorScreen {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+}

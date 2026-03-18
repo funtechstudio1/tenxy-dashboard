@@ -1,0 +1,184 @@
+/* ================================================================
+   TENXY — Global Design System
+   Deep black military operations center aesthetic
+   ================================================================ */
+
+/* CSS Reset */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* ── Backgrounds ────────────────────────────────────────────── */
+  --bg-primary:    #0a0a0f;
+  --bg-secondary:  #0d1117;
+  --bg-tertiary:   #111820;
+  --bg-hover:      #161b22;
+  --bg-active:     #1a2332;
+  --bg-overlay:    rgba(10, 10, 15, 0.85);
+
+  /* ── Borders ────────────────────────────────────────────────── */
+  --border-subtle:  #1e2a3a;
+  --border-active:  rgba(0, 212, 255, 0.2);
+  --border-glow:    #00d4ff;
+
+  /* ── Primary Accent — Cyan ──────────────────────────────────── */
+  --accent-cyan:      #00d4ff;
+  --accent-cyan-dim:  rgba(0, 212, 255, 0.53);
+  --accent-cyan-bg:   rgba(0, 212, 255, 0.07);
+  --accent-cyan-15:   rgba(0, 212, 255, 0.15);
+
+  /* ── Status Colors ──────────────────────────────────────────── */
+  --status-green:   #00ff88;
+  --status-red:     #ff3b3b;
+  --status-amber:   #ffaa00;
+  --status-orange:  #ff6b35;
+
+  /* ── Text ───────────────────────────────────────────────────── */
+  --text-primary:    #e6edf3;
+  --text-secondary:  #8b949e;
+  --text-dim:        #484f58;
+
+  /* ── Shadows & Glow ─────────────────────────────────────────── */
+  --glow-cyan:   0 0 20px rgba(0, 212, 255, 0.27), 0 0 40px rgba(0, 212, 255, 0.13);
+  --glow-green:  0 0 12px rgba(0, 255, 136, 0.27);
+  --glow-red:    0 0 12px rgba(255, 59, 59, 0.27);
+  --glow-amber:  0 0 12px rgba(255, 170, 0, 0.27);
+  --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.6);
+
+  /* ── Typography ─────────────────────────────────────────────── */
+  --font-mono:    'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-display: 'JetBrains Mono', monospace;
+
+  --text-xs:   0.65rem;
+  --text-sm:   0.75rem;
+  --text-base: 0.85rem;
+  --text-md:   0.95rem;
+  --text-lg:   1.15rem;
+  --text-xl:   1.5rem;
+  --text-2xl:  2rem;
+  --text-3xl:  2.5rem;
+
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-bold:    700;
+
+  --tracking-tight:   -0.02em;
+  --tracking-normal:   0;
+  --tracking-wide:     0.05em;
+  --tracking-wider:    0.1em;
+
+  /* ── Spacing ────────────────────────────────────────────────── */
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ── Layout ─────────────────────────────────────────────────── */
+  --topbar-height:    56px;
+  --bottombar-height: 140px;
+  --sidebar-width:    280px;
+
+  /* prevent text overflow */
+  color-scheme: dark;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Scrollbar Styling ──────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+
+/* ── Selection ──────────────────────────────────────────────────── */
+::selection {
+  background: var(--accent-cyan-15);
+  color: var(--accent-cyan);
+}
+
+/* ── Utility Classes ────────────────────────────────────────────── */
+.text-cyan   { color: var(--accent-cyan); }
+.text-green  { color: var(--status-green); }
+.text-red    { color: var(--status-red); }
+.text-amber  { color: var(--status-amber); }
+.text-dim    { color: var(--text-secondary); }
+.text-xs     { font-size: var(--text-xs); }
+.text-sm     { font-size: var(--text-sm); }
+.text-base   { font-size: var(--text-base); }
+.text-md     { font-size: var(--text-md); }
+.text-lg     { font-size: var(--text-lg); }
+.text-xl     { font-size: var(--text-xl); }
+.text-2xl    { font-size: var(--text-2xl); }
+.text-mono   { font-family: var(--font-mono); }
+.text-upper  { text-transform: uppercase; letter-spacing: var(--tracking-wider); }
+.text-bold   { font-weight: var(--weight-bold); }
+
+.panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.panel-elevated {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-panel);
+}
+
+/* ── Global Animations ──────────────────────────────────────────── */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}

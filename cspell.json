@@ -1,0 +1,26 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "TENXY",
+    "UNSCANNED",
+    "scanline",
+    "scanlines",
+    "CALLSIGN",
+    "topbar",
+    "lucide",
+    "tenxy",
+    "callsign",
+    "Vite",
+    "Vitejs",
+    "typescript",
+    "anthropic",
+    "Briefing"
+  ],
+  "flagWords": [],
+  "ignorePaths": [
+    "node_modules",
+    "dist",
+    "package-lock.json"
+  ]
+}

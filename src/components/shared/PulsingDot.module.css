@@ -1,0 +1,12 @@
+.dot {
+  display: inline-block;
+  border-radius: 50%;
+  animation: status-pulse 1.5s infinite;
+  flex-shrink: 0;
+}
+
+.green  { background: var(--status-green); }
+.cyan   { background: var(--accent-cyan); }
+.amber  { background: var(--status-amber); }
+.red    { background: var(--status-red); }
+.orange { background: var(--status-orange); }
