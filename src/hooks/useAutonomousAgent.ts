@@ -100,6 +100,8 @@ export function useAutonomousAgent(
       for (const drone of d) {
         // Skip drones that are charging (they're docked and recharging)
         if (drone.status === 'CHARGING') continue
+        // Skip ALERT drones — they're responding to placed disasters, don't override rescue
+        if (drone.status === 'ALERT') continue
         // Skip drones that are mid zone-sweep — they have their own waypoint path
         if (drone.waypoints && drone.waypoints.length > 0) continue
         // IDLE drones ARE commanded during power failure — they need to start sweeping

@@ -608,6 +608,8 @@ export function useSimulation(initialDroneCount: number = 12) {
         if (d.id !== id) return d
         // Don't override a drone that is mid-zone-sweep
         if (d.waypoints && d.waypoints.length > 0) return d
+        // Don't override a drone actively rescuing a disaster
+        if (d.missionTargetId) return d
         return { ...d, targetX: x, targetY: y, status: 'SCANNING' as const }
       }))
     }, []),
