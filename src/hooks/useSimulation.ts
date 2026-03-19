@@ -138,6 +138,9 @@ export function useSimulation(initialDroneCount: number = 12) {
   const userTargetedDronesRef = useRef<Map<string, { x: number; y: number; time: number }>>(new Map())
   // Track when admin deployed the swarm (to prevent grid reset overriding deployment)
   const adminDeploymentTimeRef = useRef<number | null>(null)
+  // Refs for stale-closure-safe access inside setInterval callbacks
+  const powerFailureRef = useRef(false)
+  const disastersRef = useRef<DisasterMarker[]>([])
 
   // Initialize drones
   useEffect(() => {
@@ -189,6 +192,10 @@ export function useSimulation(initialDroneCount: number = 12) {
 
     addLog('System: Swarm initialized. All units reporting nominal.', 'system')
   }, [initialDroneCount])
+
+  // Keep refs in sync so interval callbacks always read current state
+  useEffect(() => { powerFailureRef.current = powerFailure }, [powerFailure])
+  useEffect(() => { disastersRef.current = disasters }, [disasters])
 
   const addLog = useCallback((message: string, type: MissionLogEntry['type']) => {
     const timeStr = new Date().toLocaleTimeString('en-GB', { hour12: false })
@@ -361,6 +368,32 @@ export function useSimulation(initialDroneCount: number = 12) {
             }
           }
 
+          // ── Autonomous disaster detection (power failure mode) ──────────────
+          // Drones have no telemetry — they detect by proximity ("on-board sensors").
+          // Runs every tick so a drone that sweeps near a disaster catches it quickly.
+          if (powerFailureRef.current && !missionTargetId &&
+              status !== 'ALERT' && status !== 'RETURNING' && status !== 'CHARGING') {
+            const nearDisaster = disastersRef.current.find(d =>
+              Math.hypot(d.x - x, d.y - y) < 0.12
+            )
+            if (nearDisaster) {
+              const alreadyCovered = prevDrones.some(other =>
+                other.id !== drone.id && other.missionTargetId === nearDisaster.id
+              )
+              if (!alreadyCovered) {
+                addLog(`${drone.name}: AUTONOMOUS SENSOR — ${nearDisaster.type.toUpperCase()} signature detected at (${nearDisaster.x.toFixed(2)}, ${nearDisaster.y.toFixed(2)}). Initiating rescue protocol.`, 'alert')
+                status = 'ALERT'
+                missionTargetId = nearDisaster.id
+                targetX = nearDisaster.x
+                targetY = nearDisaster.y
+                rescueProgress = 0
+                waypoints = undefined
+                waypointIndex = 0
+                zoneId = undefined
+              }
+            }
+          }
+
           temp = 35 + (1 - battery / 100) * 20 + Math.random() * 2
           return {
             ...drone,
@@ -502,6 +535,14 @@ export function useSimulation(initialDroneCount: number = 12) {
   const addDisaster = useCallback((type: 'fire' | 'flood', x: number, y: number) => {
     const id = `${type.toUpperCase()}-${Date.now()}`
     setDisasters(prev => [...prev, { id, type, x, y }])
+
+    // Power failure: base station OFFLINE — drones have no telemetry and cannot receive
+    // dispatch orders. They will detect the disaster autonomously via on-board sensors.
+    if (powerFailureRef.current) {
+      addLog(`ALERT: ${type.toUpperCase()} DISASTER marked at (${x.toFixed(2)}, ${y.toFixed(2)}). Base station OFFLINE — drones will detect autonomously during sweep.`, 'alert')
+      return
+    }
+
     addLog(`ALERT: ${type.toUpperCase()} DISASTER detected at grid (${x.toFixed(2)}, ${y.toFixed(2)}). Dispatching response units.`, 'alert')
     setDrones(prev => {
       const available = prev.filter(d => d.status === 'SCANNING' || d.status === 'IDLE')
