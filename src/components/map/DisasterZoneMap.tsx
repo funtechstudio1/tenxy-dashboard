@@ -3,7 +3,7 @@ import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import type { Drone, Survivor, Sector, DisasterMarker, BoundaryZone } from '../../hooks/useSimulation'
 import styles from './DisasterZoneMap.module.css'
-import CesiumDroneCamera from '../detail/CesiumDroneCamera'
+import MapboxDroneCamera from '../detail/MapboxDroneCamera'
 
 // Sweep path colors per drone index (cyan, green, amber, purple)
 const SWEEP_COLORS = ['#00d4ff', '#00ff88', '#ffaa00', '#cc88ff']
@@ -1409,7 +1409,7 @@ export default function DisasterZoneMap({
               {(() => {
                 const d = drones.find(dr => dr.id === selectedDroneId)
                 if (!d) return null
-                return <CesiumDroneCamera drone={d} disasters={disasters} />
+                return <MapboxDroneCamera drone={d} disasters={disasters} />
               })()}
             </div>
             <div className={styles.statusGrid}>
