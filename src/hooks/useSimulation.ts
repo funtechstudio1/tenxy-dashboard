@@ -381,7 +381,7 @@ export function useSimulation(initialDroneCount: number = 12) {
           if (powerFailureRef.current && !missionTargetId &&
               status !== 'ALERT' && status !== 'RETURNING' && status !== 'CHARGING') {
             const nearDisaster = disastersRef.current.find(d =>
-              Math.hypot(d.x - x, d.y - y) < 0.12 && !rescuingNow.has(d.id)
+              Math.hypot(d.x - x, d.y - y) < 0.08 && !rescuingNow.has(d.id)
             )
             if (nearDisaster) {
               rescuingNow.add(nearDisaster.id)  // claim before next drone checks
