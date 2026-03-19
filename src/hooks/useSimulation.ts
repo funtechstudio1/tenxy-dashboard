@@ -220,6 +220,12 @@ export function useSimulation(initialDroneCount: number = 12) {
       }
 
       setDrones(prevDrones => {
+        // Build set of disaster IDs already being rescued (from previous ticks).
+        // Mutated inside the map so only ONE drone per disaster is assigned per tick.
+        const rescuingNow = new Set<string>(
+          prevDrones.filter(d => d.missionTargetId).map(d => d.missionTargetId!)
+        )
+
         return prevDrones.map(drone => {
           let { x, y, targetX, targetY, battery, status, speed, altitude, temp } = drone
           let rescueProgress = drone.rescueProgress ?? 0
@@ -370,27 +376,24 @@ export function useSimulation(initialDroneCount: number = 12) {
 
           // ── Autonomous disaster detection (power failure mode) ──────────────
           // Drones have no telemetry — they detect by proximity ("on-board sensors").
-          // Runs every tick so a drone that sweeps near a disaster catches it quickly.
+          // rescuingNow is shared across the map call and mutated on assignment,
+          // so only ONE drone per disaster is assigned per tick.
           if (powerFailureRef.current && !missionTargetId &&
               status !== 'ALERT' && status !== 'RETURNING' && status !== 'CHARGING') {
             const nearDisaster = disastersRef.current.find(d =>
-              Math.hypot(d.x - x, d.y - y) < 0.12
+              Math.hypot(d.x - x, d.y - y) < 0.12 && !rescuingNow.has(d.id)
             )
             if (nearDisaster) {
-              const alreadyCovered = prevDrones.some(other =>
-                other.id !== drone.id && other.missionTargetId === nearDisaster.id
-              )
-              if (!alreadyCovered) {
-                addLog(`${drone.name}: AUTONOMOUS SENSOR — ${nearDisaster.type.toUpperCase()} signature detected at (${nearDisaster.x.toFixed(2)}, ${nearDisaster.y.toFixed(2)}). Initiating rescue protocol.`, 'alert')
-                status = 'ALERT'
-                missionTargetId = nearDisaster.id
-                targetX = nearDisaster.x
-                targetY = nearDisaster.y
-                rescueProgress = 0
-                waypoints = undefined
-                waypointIndex = 0
-                zoneId = undefined
-              }
+              rescuingNow.add(nearDisaster.id)  // claim before next drone checks
+              addLog(`${drone.name}: AUTONOMOUS SENSOR — ${nearDisaster.type.toUpperCase()} signature detected at (${nearDisaster.x.toFixed(2)}, ${nearDisaster.y.toFixed(2)}). Initiating rescue protocol.`, 'alert')
+              status = 'ALERT'
+              missionTargetId = nearDisaster.id
+              targetX = nearDisaster.x
+              targetY = nearDisaster.y
+              rescueProgress = 0
+              waypoints = undefined
+              waypointIndex = 0
+              zoneId = undefined
             }
           }
 
