@@ -17,6 +17,7 @@ export default defineConfig({
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) return 'vendor-react'
             if (id.includes('mapbox-gl')) return 'vendor-mapbox'
             if (id.includes('@anthropic-ai')) return 'vendor-anthropic'
+            if (id.includes('onnxruntime-web') || id.includes('onnxruntime_web')) return 'vendor-ort'
           }
         },
       },

@@ -6,12 +6,17 @@
  *   position within the live feed.
  * - Coordinates: normalized 0–1 relative to mission center (read from
  *   sessionStorage so it matches DisasterZoneMap exactly).
+ *
+ * Includes FireDetectionOverlay: captures the Cesium WebGL canvas frame every 500ms
+ * and runs YOLO11 fire detection via ONNX Runtime Web (WebAssembly).
+ * requestRenderMode is disabled so the WebGL buffer always holds the current frame.
  */
 
 import { useRef, useEffect } from 'react'
 import * as Cesium from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 import type { Drone, DisasterMarker } from '../../hooks/useSimulation'
+import FireDetectionOverlay, { type CameraHandle } from '../detection/FireDetectionOverlay'
 
 const FALLBACK_CENTER_LON = 125.0062
 const FALLBACK_CENTER_LAT = 11.2435
@@ -43,6 +48,30 @@ export default function CesiumDroneCamera({ drone, disasters = [] }: Props) {
   // Map disasterId → Cesium entity so we can remove stale ones
   const disasterEntities = useRef<Map<string, Cesium.Entity>>(new Map())
 
+  // Internal handle for FireDetectionOverlay — captures Cesium WebGL canvas frame
+  const cameraHandleRef = useRef<CameraHandle>({
+    getFrame(): ImageData | null {
+      const container = containerRef.current
+      if (!container) return null
+      const glCanvas = container.querySelector('canvas') as HTMLCanvasElement | null
+      if (!glCanvas) return null
+      try {
+        // Cesium canvas is WebGL — copy via intermediate 2D canvas.
+        // Pre-downsample to ≤640px to reduce inference overhead.
+        const scale = Math.min(640 / glCanvas.width, 640 / glCanvas.height, 1)
+        const tw = Math.round(glCanvas.width * scale)
+        const th = Math.round(glCanvas.height * scale)
+        const tmp = document.createElement('canvas')
+        tmp.width = tw
+        tmp.height = th
+        tmp.getContext('2d')!.drawImage(glCanvas, 0, 0, tw, th)
+        return tmp.getContext('2d')!.getImageData(0, 0, tw, th)
+      } catch {
+        return null
+      }
+    },
+  })
+
   // Initialise Cesium viewer once
   useEffect(() => {
     if (!containerRef.current || viewerRef.current) return
@@ -73,6 +102,9 @@ export default function CesiumDroneCamera({ drone, disasters = [] }: Props) {
       selectionIndicator: false,
       timeline: false,
       navigationHelpButton: false,
+      // requestRenderMode: true — only renders when explicitly requested.
+      // A 10fps interval below keeps the canvas fresh for frame capture
+      // while avoiding continuous full-rate GPU rendering.
       requestRenderMode: true,
       maximumRenderTimeChange: Infinity,
       creditContainer: Object.assign(document.createElement('div'), { style: 'display:none' }),
@@ -87,7 +119,16 @@ export default function CesiumDroneCamera({ drone, disasters = [] }: Props) {
 
     viewerRef.current = viewer
 
+    // Render at 10fps — keeps the WebGL canvas fresh for frame capture
+    // without continuous full-rate GPU usage
+    const renderInterval = setInterval(() => {
+      if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+        viewerRef.current.scene.requestRender()
+      }
+    }, 100)
+
     return () => {
+      clearInterval(renderInterval)
       disasterEntities.current.clear()
       if (viewerRef.current && !viewerRef.current.isDestroyed()) {
         viewerRef.current.destroy()
@@ -112,7 +153,6 @@ export default function CesiumDroneCamera({ drone, disasters = [] }: Props) {
         roll: 0,
       },
     })
-    viewer.scene.requestRender()
   }, [drone.x, drone.y])
 
   // Sync disaster billboard entities whenever the disasters list changes
@@ -161,8 +201,6 @@ export default function CesiumDroneCamera({ drone, disasters = [] }: Props) {
         existing.delete(id)
       }
     })
-
-    viewer.scene.requestRender()
   }, [disasters])
 
   const [droneLon, droneLat] = normToLngLat(drone.x, drone.y)
@@ -170,7 +208,11 @@ export default function CesiumDroneCamera({ drone, disasters = [] }: Props) {
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '200px', overflow: 'hidden', borderRadius: '2px' }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-      {/* Tactical HUD overlay */}
+
+      {/* Fire detection canvas overlay + toggle button */}
+      <FireDetectionOverlay cameraRef={cameraHandleRef} />
+
+      {/* Tactical HUD overlay — sits above detection canvas */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
         border: '1px solid rgba(0,212,255,0.3)',
@@ -178,6 +220,7 @@ export default function CesiumDroneCamera({ drone, disasters = [] }: Props) {
         padding: '6px 8px',
         fontFamily: 'monospace', fontSize: '9px', color: '#00d4ff',
         textShadow: '0 0 4px #00d4ff',
+        zIndex: 12,
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span>NADIR CAM: {drone.name}</span>
