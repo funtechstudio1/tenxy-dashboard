@@ -39,6 +39,7 @@ export default function MapboxDroneCamera({ drone, disasters = [] }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const markersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
+  const detectionCanvasRef = useRef<HTMLCanvasElement>(null)
 
   // Internal handle for FireDetectionOverlay — provides WebGL canvas frame capture
   const cameraHandleRef = useRef<CameraHandle>({
@@ -137,11 +138,89 @@ export default function MapboxDroneCamera({ drone, disasters = [] }: Props) {
     })
   }, [disasters])
 
+  // Draw tactical bounding box on canvas when drone is rescuing a disaster
+  useEffect(() => {
+    const map = mapRef.current
+    const canvas = detectionCanvasRef.current
+    if (!map || !canvas) return
+
+    if (!drone.missionTargetId) {
+      const ctx = canvas.getContext('2d')
+      ctx?.clearRect(0, 0, canvas.width, canvas.height)
+      return
+    }
+
+    const disaster = disasters.find(d => d.id === drone.missionTargetId)
+    if (!disaster) return
+
+    const [dLon, dLat] = normToLngLat(disaster.x, disaster.y)
+
+    const draw = () => {
+      const ctx = canvas.getContext('2d')
+      if (!ctx || !mapRef.current) return
+      const W = canvas.offsetWidth
+      const H = canvas.offsetHeight
+      canvas.width = W
+      canvas.height = H
+      ctx.clearRect(0, 0, W, H)
+
+      const pt = mapRef.current.project([dLon, dLat])
+      const px = pt.x, py = pt.y
+      const half = 32
+      const x1 = px - half, y1 = py - half, bw = half * 2, bh = half * 2
+      if (px < -half || px > W + half || py < -half || py > H + half) return
+
+      // Red glow box
+      ctx.strokeStyle = '#ff3300'
+      ctx.lineWidth = 2
+      ctx.shadowColor = '#ff3300'
+      ctx.shadowBlur = 8
+      ctx.strokeRect(x1, y1, bw, bh)
+      ctx.shadowBlur = 0
+
+      // Orange corner ticks
+      const tick = 12
+      ctx.strokeStyle = '#ff6600'
+      ctx.lineWidth = 2
+      ;[
+        [[x1 + tick, y1], [x1, y1], [x1, y1 + tick]],
+        [[x1 + bw - tick, y1], [x1 + bw, y1], [x1 + bw, y1 + tick]],
+        [[x1, y1 + bh - tick], [x1, y1 + bh], [x1 + tick, y1 + bh]],
+        [[x1 + bw, y1 + bh - tick], [x1 + bw, y1 + bh], [x1 + bw - tick, y1 + bh]],
+      ].forEach(([[ax, ay], [bx, by], [cx, cy]]) => {
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(cx, cy); ctx.stroke()
+      })
+
+      // Label badge
+      const label = `${disaster.type.toUpperCase()} DETECTED`
+      ctx.font = 'bold 9px monospace'
+      const lw = ctx.measureText(label).width + 8
+      ctx.fillStyle = 'rgba(180,20,0,0.9)'
+      ctx.fillRect(x1, y1 - 18, lw, 15)
+      ctx.fillStyle = '#ffffff'
+      ctx.fillText(label, x1 + 4, y1 - 6)
+    }
+
+    draw()
+    map.on('render', draw)
+    return () => { map.off('render', draw) }
+  }, [drone.missionTargetId, disasters])
+
   const [droneLon, droneLat] = normToLngLat(drone.x, drone.y)
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '200px', overflow: 'hidden', borderRadius: '2px' }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+
+      {/* Disaster detection bounding box canvas overlay */}
+      <canvas
+        ref={detectionCanvasRef}
+        style={{
+          position: 'absolute', inset: 0,
+          width: '100%', height: '100%',
+          pointerEvents: 'none', zIndex: 13,
+        }}
+      />
 
       {/* Fire detection canvas overlay + toggle button */}
       <FireDetectionOverlay cameraRef={cameraHandleRef} />

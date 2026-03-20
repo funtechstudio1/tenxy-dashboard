@@ -90,7 +90,6 @@ export default function DisasterZoneMap({
   const dronesMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
   const droneMarkerElsRef = useRef<Map<string, { img: HTMLImageElement; label: HTMLDivElement }>>(new Map())
   const disasterMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
-  const disasterBoxRef = useRef<Map<string, HTMLDivElement>>(new Map())
   const drawModeRef = useRef<'fire' | 'flood' | 'boundary' | null>(null)
   const boundaryPointsRef = useRef<{ x: number; y: number }[]>([])
   const waypointModeRef = useRef(false)
@@ -310,9 +309,9 @@ export default function DisasterZoneMap({
         source: 'selected-drone-area',
         paint: {
           // Scale with zoom so the circle always represents the real detection radius (~352m).
-          // Exponential base-2 interpolation doubles per zoom step, matching geographic scaling.
-          // zoom 12 ≈ 19px, zoom 14 ≈ 75px, zoom 16 ≈ 300px — all equal to ~352m on screen.
-          'circle-radius': ['interpolate', ['exponential', 2], ['zoom'], 12, 19, 16, 300],
+          // Formula: meters_per_px = cos(lat) × 40,075,017 / (2^Z × 256)
+          // zoom 12 ≈ 9px, zoom 14 ≈ 37px, zoom 16 ≈ 150px — all equal to ~352m on screen.
+          'circle-radius': ['interpolate', ['exponential', 2], ['zoom'], 12, 9, 16, 150],
           'circle-color': 'rgba(255, 255, 0, 0.12)',
           'circle-stroke-color': '#ffff00',
           'circle-stroke-width': 2
@@ -799,34 +798,11 @@ export default function DisasterZoneMap({
     disasters.forEach(d => {
       if (existing.has(d.id)) return // already placed
       const el = document.createElement('div')
-      el.style.cssText = 'width:48px;height:48px;cursor:default;pointer-events:none;position:relative;'
+      el.style.cssText = 'width:48px;height:48px;cursor:default;pointer-events:none;'
       const img = document.createElement('img')
       img.src = `/tenxy-dashboard/${d.type}.gif`
       img.style.cssText = 'width:100%;height:100%;object-fit:contain;'
       el.appendChild(img)
-
-      // Tactical bounding box — hidden until a drone detects this disaster
-      const box = document.createElement('div')
-      box.style.cssText = 'position:absolute;inset:-6px;display:none;pointer-events:none;'
-      const border = document.createElement('div')
-      border.style.cssText = 'position:absolute;inset:0;border:1.5px solid #ff3300;box-shadow:0 0 6px #ff3300;'
-      box.appendChild(border)
-      ;[
-        'top:-2px;left:-2px;border-top:2px solid #ff6600;border-left:2px solid #ff6600;',
-        'top:-2px;right:-2px;border-top:2px solid #ff6600;border-right:2px solid #ff6600;',
-        'bottom:-2px;left:-2px;border-bottom:2px solid #ff6600;border-left:2px solid #ff6600;',
-        'bottom:-2px;right:-2px;border-bottom:2px solid #ff6600;border-right:2px solid #ff6600;',
-      ].forEach(css => {
-        const t = document.createElement('div')
-        t.style.cssText = `position:absolute;width:9px;height:9px;${css}`
-        box.appendChild(t)
-      })
-      const badge = document.createElement('div')
-      badge.style.cssText = 'position:absolute;top:-18px;left:0;right:0;text-align:center;'
-      badge.innerHTML = `<span style="background:rgba(180,20,0,0.9);color:#fff;font:bold 7px monospace;padding:1px 5px;letter-spacing:1px;">${d.type.toUpperCase()} DETECTED</span>`
-      box.appendChild(badge)
-      el.appendChild(box)
-      disasterBoxRef.current.set(d.id, box)
 
       const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([centerLon + (d.x - 0.5) * GRID_SCALE, centerLat - (d.y - 0.5) * GRID_SCALE])
@@ -839,20 +815,9 @@ export default function DisasterZoneMap({
       if (!disasters.find(d => d.id === id)) {
         marker.remove()
         existing.delete(id)
-        disasterBoxRef.current.delete(id)
       }
     })
   }, [mapLoaded, disasters, centerLon, centerLat])
-
-  // Show/hide tactical bounding box on disaster markers when a drone is rescuing them
-  useEffect(() => {
-    const rescuingIds = new Set(
-      drones.filter(d => d.missionTargetId).map(d => d.missionTargetId!)
-    )
-    disasterBoxRef.current.forEach((boxEl, disasterId) => {
-      boxEl.style.display = rescuingIds.has(disasterId) ? 'block' : 'none'
-    })
-  }, [drones])
 
   // User location marker
   useEffect(() => {
