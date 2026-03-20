@@ -24,6 +24,7 @@ interface SimulationContextType {
   sendDronesToMission: (droneIds: string[], targetX: number, targetY: number) => void
   disasters: DisasterMarker[]
   boundaries: BoundaryZone[]
+  scanTrail: { x: number; y: number }[]
   addDisaster: (type: 'fire' | 'flood', x: number, y: number) => void
   addBoundary: (points: { x: number; y: number }[], instruction: string) => void
   // Shared agent reasoning log visible across all screens
@@ -86,6 +87,7 @@ export const SimulationProvider = ({ children }: { children: ReactNode }) => {
       sendDronesToMission: sim.sendDronesToMission,
       disasters: sim.disasters,
       boundaries: sim.boundaries,
+      scanTrail: sim.scanTrail,
       addDisaster: sim.addDisaster,
       addBoundary: sim.addBoundary,
       agentReasoningSteps,

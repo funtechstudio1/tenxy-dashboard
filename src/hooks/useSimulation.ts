@@ -132,6 +132,7 @@ export function useSimulation(initialDroneCount: number = 12) {
   const [powerFailure, setPowerFailure] = useState(false)
   const [disasters, setDisasters] = useState<DisasterMarker[]>([])
   const [boundaries, setBoundaries] = useState<BoundaryZone[]>([])
+  const [scanTrail, setScanTrail] = useState<{ x: number; y: number }[]>([])
 
   const initialized = useRef(false)
   // Track drones that were manually targeted by user (to prevent grid reset overriding them)
@@ -141,6 +142,8 @@ export function useSimulation(initialDroneCount: number = 12) {
   // Refs for stale-closure-safe access inside setInterval callbacks
   const powerFailureRef = useRef(false)
   const disastersRef = useRef<DisasterMarker[]>([])
+  const dronesRef = useRef<Drone[]>([])
+  const tickCountRef = useRef(0)
 
   // Initialize drones
   useEffect(() => {
@@ -196,6 +199,7 @@ export function useSimulation(initialDroneCount: number = 12) {
   // Keep refs in sync so interval callbacks always read current state
   useEffect(() => { powerFailureRef.current = powerFailure }, [powerFailure])
   useEffect(() => { disastersRef.current = disasters }, [disasters])
+  useEffect(() => { dronesRef.current = drones }, [drones])
 
   // When power failure starts, release any drones mid-zone-sweep so the
   // autonomous agent can command them. Without this, waypoints.length > 0
@@ -247,6 +251,41 @@ export function useSimulation(initialDroneCount: number = 12) {
 
           // IDLE drones do nothing — they stay at their helipad slot
           if (status === 'IDLE') return drone
+
+          // ── Battery drain + RTB (runs FIRST so RETURNING drones move home this tick) ──
+          if (status !== 'CHARGING') {
+            battery = Math.max(0, battery - 0.2)
+
+            if (status !== 'RETURNING') {
+              const homeX = drone.slotX ?? 0.5
+              const homeY = drone.slotY ?? 0.5
+
+              if (status === 'ALERT') {
+                if (battery <= 10) {
+                  status = 'RETURNING'
+                  targetX = homeX
+                  targetY = homeY
+                  missionTargetId = undefined
+                  rescueProgress = 0
+                  addLog(`${drone.name}: Critical battery during rescue — emergency RTB.`, 'alert')
+                }
+              } else {
+                const distToHome = Math.hypot(x - homeX, y - homeY)
+                const batteryNeeded = distToHome * 100 * 1.1
+                const threshold = Math.max(batteryNeeded, 10)
+
+                if (battery <= threshold) {
+                  status = 'RETURNING'
+                  targetX = homeX
+                  targetY = homeY
+                  waypoints = undefined
+                  waypointIndex = 0
+                  zoneId = undefined
+                  addLog(`${drone.name}: Battery at ${battery.toFixed(0)}% — RTB (need ≥${batteryNeeded.toFixed(0)}%).`, 'alert')
+                }
+              }
+            }
+          }
 
           // ── Zone sweep: override target to current waypoint ────────────────
           if (status === 'SCANNING' && waypoints && waypoints.length > 0) {
@@ -347,44 +386,6 @@ export function useSimulation(initialDroneCount: number = 12) {
           // Update trail
           const newTrail = [{ x, y }, ...drone.trail].slice(0, 15)
 
-          // ── Battery drain + RTB ────────────────────────────────────────────
-          if (status !== 'CHARGING') {
-            battery = Math.max(0, battery - 0.2)
-
-            if (status !== 'RETURNING') {
-              const homeX = drone.slotX ?? 0.5
-              const homeY = drone.slotY ?? 0.5
-
-              if (status === 'ALERT') {
-                // Rescue drones: use fixed 10% hard cutoff so they can complete the mission.
-                if (battery <= 10) {
-                  status = 'RETURNING'
-                  targetX = homeX
-                  targetY = homeY
-                  missionTargetId = undefined
-                  rescueProgress = 0
-                  addLog(`${drone.name}: Critical battery during rescue — emergency RTB.`, 'alert')
-                }
-              } else {
-                // Scanning/deploying drones: distance-aware RTB ensures they can always return.
-                const distToHome = Math.hypot(x - homeX, y - homeY)
-                const batteryNeeded = distToHome * 100 * 1.1  // 10% safety margin
-                const threshold = Math.max(batteryNeeded, 10)  // never below 10%
-
-                if (battery <= threshold) {
-                  status = 'RETURNING'
-                  targetX = homeX
-                  targetY = homeY
-                  // Clear zone waypoints — drone must RTB
-                  waypoints = undefined
-                  waypointIndex = 0
-                  zoneId = undefined
-                  addLog(`${drone.name}: Battery at ${battery.toFixed(0)}% — RTB (need ≥${batteryNeeded.toFixed(0)}%).`, 'alert')
-                }
-              }
-            }
-          }
-
           // ── Autonomous disaster detection (power failure mode) ──────────────
           // Drones have no telemetry — they detect by proximity ("on-board sensors").
           // rescuingNow is shared across the map call and mutated on assignment,
@@ -439,7 +440,7 @@ export function useSimulation(initialDroneCount: number = 12) {
       setSectors(prevSectors => {
         const updated = prevSectors.map(sector => {
           // Count how many drones are currently in this sector
-          const dronesInSector = drones.filter(d => {
+          const dronesInSector = dronesRef.current.filter(d => {
             const sx = Math.floor(d.x * 8)
             const sy = Math.floor(d.y * 8)
             return sx === sector.x && sy === sector.y
@@ -462,6 +463,23 @@ export function useSimulation(initialDroneCount: number = 12) {
 
         return updated
       })
+
+      // Accumulate scan trail points every 3rd tick
+      tickCountRef.current += 1
+      if (tickCountRef.current % 3 === 0) {
+        setDrones(prev => {
+          const pts = prev
+            .filter(d => d.status === 'SCANNING' || d.status === 'DEPLOYING' || d.status === 'ALERT')
+            .map(d => ({ x: d.x, y: d.y }))
+          if (pts.length > 0) {
+            setScanTrail(trail => {
+              const next = [...trail, ...pts]
+              return next.length > 4000 ? next.slice(next.length - 4000) : next
+            })
+          }
+          return prev // no mutation
+        })
+      }
     }, 1000)
 
     return () => clearInterval(interval)
@@ -531,6 +549,7 @@ export function useSimulation(initialDroneCount: number = 12) {
 
   const deploySwarm = useCallback(() => {
     adminDeploymentTimeRef.current = Date.now()
+    setScanTrail([])
     setDrones(prev => prev.map((d, idx) => {
       const gridSize = 4
       const gridX = (idx % gridSize) / gridSize + 0.125
@@ -644,6 +663,7 @@ export function useSimulation(initialDroneCount: number = 12) {
     logs,
     disasters,
     boundaries,
+    scanTrail,
     missionTime,
     coverage,
     isPaused,
@@ -661,6 +681,8 @@ export function useSimulation(initialDroneCount: number = 12) {
     setAgentTarget: useCallback((id: string, x: number, y: number) => {
       setDrones(prev => prev.map(d => {
         if (d.id !== id) return d
+        // Don't override a drone that is returning to base or charging
+        if (d.status === 'RETURNING' || d.status === 'CHARGING') return d
         // Don't override a drone that is mid-zone-sweep
         if (d.waypoints && d.waypoints.length > 0) return d
         // Don't override a drone actively rescuing a disaster

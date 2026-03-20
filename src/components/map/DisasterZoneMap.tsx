@@ -19,6 +19,7 @@ interface DisasterZoneMapProps {
   sectors: Sector[]
   disasters: DisasterMarker[]
   boundaries: BoundaryZone[]
+  scanTrail: { x: number; y: number }[]
   selectedDroneId: string | null
   onSelectDrone: (id: string | null) => void
   onSetTarget: (id: string, x: number, y: number) => void
@@ -35,6 +36,7 @@ export default function DisasterZoneMap({
   sectors,
   disasters,
   boundaries,
+  scanTrail,
   selectedDroneId,
   onSelectDrone,
   onSetTarget,
@@ -294,9 +296,26 @@ export default function DisasterZoneMap({
         }
       })
 
-      // 3. SAR Sectors & Survivors
-      map.addSource('sectors', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
-      map.addLayer({ id: 'sectors-fill', type: 'fill', source: 'sectors', paint: { 'fill-color': '#00d4ff', 'fill-opacity': ['get', 'opacity'] } })
+      // 3. Scan coverage heatmap & Survivors
+      map.addSource('scan-trail', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+      map.addLayer({
+        id: 'scan-coverage',
+        type: 'heatmap',
+        source: 'scan-trail',
+        paint: {
+          'heatmap-weight': 1,
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 12, 0.3, 16, 0.5],
+          'heatmap-radius': ['interpolate', ['exponential', 2], ['zoom'], 12, 5, 16, 75],
+          'heatmap-color': [
+            'interpolate', ['linear'], ['heatmap-density'],
+            0,    'rgba(0,0,0,0)',
+            0.15, 'rgba(0,180,255,0.18)',
+            0.5,  'rgba(0,180,255,0.25)',
+            1,    'rgba(0,180,255,0.30)'
+          ],
+          'heatmap-opacity': 0.7,
+        }
+      })
 
       map.addSource('survivors', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
       map.addLayer({ id: 'survivor-glow', type: 'circle', source: 'survivors', paint: { 'circle-radius': 15, 'circle-color': '#ff4d00', 'circle-opacity': 0.6, 'circle-blur': 1 } })
@@ -579,23 +598,17 @@ export default function DisasterZoneMap({
     lastGeoJSONUpdate.current = now
     const map = mapRef.current
 
-    // Sectors
-    const sectorFeatures = sectors.filter(s => s.coverage > 0).map(s => {
-      const xMin = centerLon + (s.x / 8 - 0.5) * GRID_SCALE
-      const xMax = centerLon + ((s.x + 1) / 8 - 0.5) * GRID_SCALE
-      const yMax = centerLat - (s.y / 8 - 0.5) * GRID_SCALE
-      const yMin = centerLat - ((s.y + 1) / 8 - 0.5) * GRID_SCALE
-      return {
-        type: 'Feature',
-        properties: { opacity: s.coverage / 400 },
-        geometry: {
-          type: 'Polygon',
-          coordinates: [[[xMin, yMin], [xMax, yMin], [xMax, yMax], [xMin, yMax], [xMin, yMin]]]
-        }
+    // Scan coverage heatmap
+    const scanFeatures = scanTrail.map(pt => ({
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'Point' as const,
+        coordinates: [centerLon + (pt.x - 0.5) * GRID_SCALE, centerLat - (pt.y - 0.5) * GRID_SCALE]
       }
-    })
-    const sectorSource = map.getSource('sectors') as mapboxgl.GeoJSONSource
-    if (sectorSource) sectorSource.setData({ type: 'FeatureCollection', features: sectorFeatures as any })
+    }))
+    const scanSource = map.getSource('scan-trail') as mapboxgl.GeoJSONSource
+    if (scanSource) scanSource.setData({ type: 'FeatureCollection', features: scanFeatures })
 
     // Survivors
     const survivorFeatures = survivors.map(s => ({
@@ -665,7 +678,7 @@ export default function DisasterZoneMap({
     const routeSource = map.getSource('planned-routes') as mapboxgl.GeoJSONSource
     if (routeSource) routeSource.setData({ type: 'FeatureCollection', features: routeFeatures as any })
 
-  }, [sectors, survivors, drones, mapLoaded, selectedDroneId, centerLon, centerLat])
+  }, [sectors, survivors, drones, scanTrail, mapLoaded, selectedDroneId, centerLon, centerLat])
 
   // Zoom and pan to selected drone
   useEffect(() => {

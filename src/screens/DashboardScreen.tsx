@@ -29,6 +29,7 @@ export default function DashboardScreen() {
     logs,
     disasters,
     boundaries,
+    scanTrail,
     missionTime,
     coverage,
     isRunning,
@@ -81,6 +82,7 @@ export default function DashboardScreen() {
           sectors={sectors}
           disasters={disasters}
           boundaries={boundaries}
+          scanTrail={scanTrail}
           selectedDroneId={selectedDroneId}
           onSelectDrone={setSelectedDroneId}
           onSetTarget={setDroneTarget}

@@ -164,9 +164,11 @@ export function useAutonomousAgent(
         rescuingRef.current.delete(drone.id)
 
         // ── 3. SERPENTINE GRID SWEEP ─────────────────────────────────────
-        // Assign a unique sweep lane offset per drone so drones don't overlap
+        // Distribute drones across the full grid — each starts at a different row+col combo
         const droneIndex = d.indexOf(drone)
-        const laneOffset = droneIndex % SWEEP_PATH.length
+        const startRow = droneIndex % SWEEP_COLS
+        const startCol = Math.floor(droneIndex / SWEEP_COLS) % SWEEP_COLS
+        const laneOffset = startRow * SWEEP_COLS + startCol
 
         // Get current sweep cursor for this drone
         let cursor = sweepCursorRef.current.get(drone.id) ?? (laneOffset % SWEEP_PATH.length)
