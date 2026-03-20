@@ -197,6 +197,17 @@ export function useSimulation(initialDroneCount: number = 12) {
   useEffect(() => { powerFailureRef.current = powerFailure }, [powerFailure])
   useEffect(() => { disastersRef.current = disasters }, [disasters])
 
+  // When power failure starts, release any drones mid-zone-sweep so the
+  // autonomous agent can command them. Without this, waypoints.length > 0
+  // permanently blocks the agent from reassigning those drones.
+  useEffect(() => {
+    if (!powerFailure) return
+    setDrones(prev => prev.map(d => {
+      if (!d.waypoints || d.waypoints.length === 0) return d
+      return { ...d, waypoints: undefined, waypointIndex: 0, zoneId: undefined }
+    }))
+  }, [powerFailure])
+
   const addLog = useCallback((message: string, type: MissionLogEntry['type']) => {
     const timeStr = new Date().toLocaleTimeString('en-GB', { hour12: false })
     setLogs(prev => [...prev.slice(-49), { time: timeStr, message, type }])

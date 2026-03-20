@@ -23,20 +23,25 @@ const SWEEP_COLS = 5
 // Minimum battery before returning to helipad
 const CRITICAL_BATTERY = 18
 
-/** Build a full serpentine sweep path across the grid */
+/** Build a full serpentine sweep path across the grid.
+ *  Restricted to [0.2, 0.8] so corner waypoints are ≤0.34 units from center,
+ *  within the drone's max safe round-trip range of ~0.476 units.
+ */
 function buildSweepPath(): { x: number; y: number }[] {
   const path: { x: number; y: number }[] = []
+  const SWEEP_START = 0.2
+  const SWEEP_END = 0.8
   const rows = SWEEP_COLS
-  const cellW = 1 / SWEEP_COLS
-  const cellH = 1 / rows
+  const cellW = (SWEEP_END - SWEEP_START) / SWEEP_COLS
+  const cellH = (SWEEP_END - SWEEP_START) / rows
   for (let r = 0; r < rows; r++) {
     const cols = r % 2 === 0
       ? Array.from({ length: SWEEP_COLS }, (_, c) => c)
       : Array.from({ length: SWEEP_COLS }, (_, c) => SWEEP_COLS - 1 - c)
     for (const c of cols) {
       path.push({
-        x: c * cellW + cellW / 2,
-        y: r * cellH + cellH / 2,
+        x: SWEEP_START + c * cellW + cellW / 2,
+        y: SWEEP_START + r * cellH + cellH / 2,
       })
     }
   }
