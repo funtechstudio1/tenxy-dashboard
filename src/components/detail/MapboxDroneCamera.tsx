@@ -1,16 +1,12 @@
 /**
  * MapboxDroneCamera — Live nadir (straight-down) satellite view from the drone's position.
  * Replaces CesiumDroneCamera using Mapbox GL JS, which is already loaded in the app.
- *
- * Includes FireDetectionOverlay: captures the WebGL canvas frame every 500ms and runs
- * YOLO11 fire detection via ONNX Runtime Web (WebAssembly).
  */
 
 import { useRef, useEffect } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import type { Drone, DisasterMarker } from '../../hooks/useSimulation'
-import FireDetectionOverlay, { type CameraHandle } from '../detection/FireDetectionOverlay'
 
 const FALLBACK_CENTER_LON = 125.0062
 const FALLBACK_CENTER_LAT = 11.2435
@@ -41,32 +37,6 @@ export default function MapboxDroneCamera({ drone, disasters = [] }: Props) {
   const markersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
   const detectionCanvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Internal handle for FireDetectionOverlay — provides WebGL canvas frame capture
-  const cameraHandleRef = useRef<CameraHandle>({
-    getFrame(): ImageData | null {
-      const map = mapRef.current
-      if (!map) return null
-      const glCanvas = map.getCanvas()
-      if (!glCanvas) return null
-      try {
-        // Mapbox canvas is WebGL — must copy via an intermediate 2D canvas.
-        // preserveDrawingBuffer: true keeps the last frame in the WebGL buffer.
-        // Pre-downsample to ≤640px to reduce NCHW conversion cost in fireDetection.ts.
-        const scale = Math.min(640 / glCanvas.width, 640 / glCanvas.height, 1)
-        const tw = Math.round(glCanvas.width * scale)
-        const th = Math.round(glCanvas.height * scale)
-        const tmp = document.createElement('canvas')
-        tmp.width = tw
-        tmp.height = th
-        const ctx = tmp.getContext('2d')!
-        ctx.drawImage(glCanvas, 0, 0, tw, th)
-        return ctx.getImageData(0, 0, tw, th)
-      } catch {
-        return null
-      }
-    },
-  })
-
   // Initialise Mapbox map once
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -85,7 +55,6 @@ export default function MapboxDroneCamera({ drone, disasters = [] }: Props) {
       bearing: 0,
       interactive: false,
       attributionControl: false,
-      preserveDrawingBuffer: true,  // required for canvas frame capture by FireDetectionOverlay
     })
 
     mapRef.current = map
@@ -221,9 +190,6 @@ export default function MapboxDroneCamera({ drone, disasters = [] }: Props) {
           pointerEvents: 'none', zIndex: 13,
         }}
       />
-
-      {/* Fire detection canvas overlay + toggle button */}
-      <FireDetectionOverlay cameraRef={cameraHandleRef} />
 
       {/* Tactical HUD overlay — sits above detection canvas */}
       <div style={{
