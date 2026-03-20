@@ -83,7 +83,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
 // ---------------------------------------------------------------------------
 export default function AgentChatScreen() {
   const navigate = useNavigate()
-  const { drones, survivors, powerFailure } = useSim()
+  const { drones, survivors, powerFailure, disasters, boundaries, logs, missionTime, coverage } = useSim()
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const now = () => new Date().toLocaleTimeString()
@@ -125,28 +125,81 @@ export default function AgentChatScreen() {
 
     const apiKey = sessionStorage.getItem('tenxy_api_key')
 
-    // ── FastMCP: report current tool data ──────────────────────────────────
+    // ── Live telemetry snapshot ──────────────────────────────────────────────
     const activeDrones = drones.filter(d => d.status === 'SCANNING' || d.status === 'DEPLOYING').length
+    const alertDrones = drones.filter(d => d.status === 'ALERT').length
     const criticalDrones = drones.filter(d => d.battery < 20).length
-    push('fastmcp', `[get_swarm_status] ${drones.length} drones | ${activeDrones} active | ${criticalDrones} critical battery\n[get_survivor_locations] ${survivors.length} survivor(s) detected\n[get_battery_status] avg battery: ${drones.length ? Math.round(drones.reduce((s,d)=>s+d.battery,0)/drones.length) : 0}%`)
+    const avgBattery = drones.length ? Math.round(drones.reduce((s, d) => s + d.battery, 0) / drones.length) : 0
+    const disastersSummary = disasters.length > 0
+      ? disasters.map(d => `${d.type.toUpperCase()} at (${d.x.toFixed(2)}, ${d.y.toFixed(2)})`).join(', ')
+      : 'None active'
 
-    // ── AutoGen: strategy decision ──────────────────────────────────────────
-    const strategy = survivors.length > 0 ? 'SURVIVOR_FOCUS' : criticalDrones > drones.length * 0.5 ? 'EMERGENCY_RECALL' : 'GRID_SWEEP'
-    push('autogen', `[SituationAnalyst → TacticalPlanner] Deliberation complete.\nRecommended strategy: ${strategy}\nRationale: ${
+    // ── FastMCP: query-aware tool report ─────────────────────────────────────
+    push('fastmcp', `[query: "${trimmed.slice(0, 60)}"]\n[get_swarm_status] ${drones.length} drones | ${activeDrones} scanning | ${alertDrones} alert | ${criticalDrones} critical\n[get_battery_status] avg: ${avgBattery}% | lowest: ${drones.length ? drones.reduce((min, d) => d.battery < min.battery ? d : min).name + ' ' + Math.round(drones.reduce((min, d) => d.battery < min.battery ? d : min).battery) + '%' : 'N/A'}\n[get_disasters] ${disastersSummary}`)
+
+    // ── AutoGen: strategy decision ───────────────────────────────────────────
+    const strategy = disasters.length > 0 ? 'DISASTER_RESPONSE' : survivors.length > 0 ? 'SURVIVOR_FOCUS' : criticalDrones > drones.length * 0.5 ? 'EMERGENCY_RECALL' : 'GRID_SWEEP'
+    push('autogen', `[SituationAnalyst → TacticalPlanner] Query context: "${trimmed.slice(0, 40)}"\nRecommended strategy: ${strategy}\nRationale: ${
+      strategy === 'DISASTER_RESPONSE' ? `${disasters.length} active disaster(s) — prioritize rescue operations.` :
       strategy === 'SURVIVOR_FOCUS' ? `${survivors.length} survivor(s) detected — redirect available drones.` :
       strategy === 'EMERGENCY_RECALL' ? `>50% drones at critical battery — emergency return.` :
-      `No survivors — maximize grid coverage via systematic sweep.`
+      `No threats — maximize grid coverage. ${powerFailure ? 'Autonomous sweep in progress.' : 'Awaiting operator commands.'}`
     }`)
 
-    // ── LangChain: execution trace ──────────────────────────────────────────
-    push('langchain', `[ReAct loop] Thought: strategy=${strategy}, available=${activeDrones} drone(s)\nAction: plan_swarm_movement(${strategy})\nObservation: routing commands queued for ${activeDrones} drone(s)\nFinal answer: movement plan dispatched.`)
+    // ── LangChain: execution trace ───────────────────────────────────────────
+    push('langchain', `[ReAct loop] Thought: user asks "${trimmed.slice(0, 50)}", strategy=${strategy}, fleet=${activeDrones}/${drones.length} active\nAction: analyze_query(context=${strategy})\nObservation: telemetry aggregated for ${drones.length} units\nFinal answer: routing to Claude for reasoning.`)
 
-    // ── Mesa: physics confirmation ──────────────────────────────────────────
-    push('mesa', `[DroneAgent.step()] Applied ${activeDrones} SET_TARGET commands. Battery drain: ${drones.length > 0 ? '0.3%/tick' : 'N/A'}. Survivor detection radius: 5.0 grid units. Next tick in ~1s.`)
+    // ── Mesa: physics confirmation ───────────────────────────────────────────
+    push('mesa', `[DroneAgent.step()] ${drones.length} agents active | tick rate: 1Hz | battery drain: 0.2%/tick\nPower: ${powerFailure ? 'OFFLINE — autonomous sweep' : 'ONLINE'} | Zones: ${boundaries.length} | Coverage: ${coverage.toFixed(1)}%`)
 
-    // ── Claude: main AI response ────────────────────────────────────────────
+    // ── Build conversation history for Claude ────────────────────────────────
+    const history: { role: 'user' | 'assistant'; content: string }[] = []
+    let assistantBuf: string[] = []
+    for (const m of messages) {
+      if (m.agentKey === 'user') {
+        if (assistantBuf.length > 0) {
+          history.push({ role: 'assistant', content: assistantBuf.join('\n\n') })
+          assistantBuf = []
+        }
+        history.push({ role: 'user', content: m.content })
+      } else {
+        assistantBuf.push(m.content)
+      }
+    }
+    if (assistantBuf.length > 0) {
+      history.push({ role: 'assistant', content: assistantBuf.join('\n\n') })
+    }
+    // Keep last 20 turns to stay within context limits
+    const trimmedHistory = history.slice(-20)
+
+    // ── Rich system prompt with live telemetry ───────────────────────────────
+    const dronesSummary = drones.map(d =>
+      `${d.name}: ${d.status} | bat:${d.battery.toFixed(0)}% | pos:(${d.x.toFixed(2)},${d.y.toFixed(2)})${d.missionTargetId ? ' | RESCUE:' + d.missionTargetId : ''}`
+    ).join('\n')
+
+    const recentLogs = logs.slice(-5).map(l => `[${l.time}] ${l.message}`).join('\n')
+
+    const systemPrompt = `You are TENXY AI, the intelligent command agent inside the TENXY drone swarm SAR (search-and-rescue) command system.
+You have real-time access to all swarm telemetry. Answer naturally — be helpful, specific, and reference actual drone names and data when relevant.
+
+LIVE SWARM STATE:
+- Fleet: ${drones.length} drones | Coverage: ${coverage.toFixed(1)}% | Mission time: ${Math.floor(missionTime / 60)}m ${missionTime % 60}s
+- Power failure: ${powerFailure ? 'YES — drones operating autonomously via on-board sensors' : 'NO — normal operations'}
+- Active disasters: ${disastersSummary}
+- Survivors detected: ${survivors.length}
+- Zones: ${boundaries.length} active boundary zone(s)
+
+DRONE STATUS:
+${dronesSummary}
+
+RECENT MISSION LOG:
+${recentLogs || 'No recent events'}
+
+Respond conversationally. Keep answers focused but natural — not robotic.`
+
+    // ── Claude: main AI response ─────────────────────────────────────────────
     if (!apiKey) {
-      push('claude', `[No API key — deterministic fallback]\nStrategy selected: ${strategy}\n${drones.length} drones managed | ${survivors.length} survivors tracked | Power failure: ${powerFailure ? 'YES' : 'NO'}\nProvide your Anthropic API key in the Briefing Screen to enable full Claude reasoning.`)
+      push('claude', `[No API key — offline mode]\n${drones.length} drones | ${activeDrones} active | ${criticalDrones} critical\nDisasters: ${disastersSummary}\nPower: ${powerFailure ? 'OFFLINE' : 'ONLINE'}\n\nProvide your Anthropic API key in the Briefing Screen for live AI reasoning.`)
       setIsSending(false)
       return
     }
@@ -155,12 +208,9 @@ export default function AgentChatScreen() {
       const client = new Anthropic({ apiKey })
       const resp = await client.messages.create({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 400,
-        system: `You are Claude, the MCP Tool-Use Agent inside the TENXY drone swarm command system.
-You are one component in a pipeline: FastMCP (tools) → Claude (reasoning) → AutoGen (group deliberation) → LangChain ReAct (execution) → Mesa ABM (physics).
-Swarm: ${drones.length} drones, ${activeDrones} active, ${criticalDrones} critical battery, ${survivors.length} survivors, power failure: ${powerFailure}.
-Be concise — 2-4 sentences. State your chain-of-thought reasoning.`,
-        messages: [{ role: 'user', content: trimmed }],
+        max_tokens: 800,
+        system: systemPrompt,
+        messages: trimmedHistory,
       })
       push('claude', resp.content[0].type === 'text' ? resp.content[0].text : 'Error reading response.')
     } catch (err) {
